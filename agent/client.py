@@ -1,4 +1,33 @@
-"""Parle à grid_api (le code du prof) en HTTP. Commun à tous les algos."""
+"""
+GridClient : c'est ce qui fait le lien entre nos algos et la grid-api.
+
+Pourquoi on a ce fichier
+    La grille tourne à part (dans le conteneur de la grid-api) et on peut lui
+    parler seulement avec des requêtes HTTP. On a mis toutes ces requêtes ici
+    pour que les fichiers des algos (astar.py, bfs.py...) contiennent seulement
+    l'algo. Tout le groupe utilise le même client.
+
+Les méthodes
+    state()              GET  /state                      tout l'état de la grille
+    mission()            GET  /mission                    départ, cible, seuil, statut, coût total
+    neighbors(node)      GET  /nodes/{r}/{c}/neighbors    les voisins d'une case et le coût pour y aller
+    distance(a, b, m)    GET  /distance                   distance "manhattan" ou "euclidean"
+    move(direction)      POST /agents/{nom}/move/{dir}    avance l'agent d'une case
+    follow(path)         fait tous les move() pour suivre un chemin
+
+A savoir
+    - Une case = un tuple (ligne, colonne), comme dans la grid-api.
+    - neighbors() et distance() ne font pas bouger l'agent, donc l'algo peut
+      regarder toute la grille sans rien payer. C'est seulement move() qui
+      ajoute au coût de la mission.
+    - follow() regarde la différence entre deux cases du chemin et la transforme
+      en direction (N, S, E, W, NE, NW, SE, SW) avec le dictionnaire DIRECTIONS.
+
+Exemple
+    client = GridClient("http://localhost:8000", agent="robot")
+    path = astar.search(start, target, client)
+    client.follow(path)
+"""
 import requests
 
 # différence (ligne, colonne) entre deux cases voisines -> direction à envoyer à l'API
