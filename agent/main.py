@@ -27,6 +27,7 @@ A savoir
 import os
 
 import astar
+import dijkstra
 from client import GridClient
 
 client = GridClient(os.environ.get("GRID_URL", "http://localhost:8000"))
@@ -36,8 +37,8 @@ start = tuple(mission["start"])
 target = tuple(mission["target"])
 print(f"Mission : {start} -> {target}, seuil {mission['threshold']}")
 
-path = astar.search(start, target, client)
-print("Chemin trouvé par A* :", path)
+path = dijkstra.search(start, target, client)
+print("Chemin trouvé par Dijkstra :", path)
 
 client.follow(path)
 print(client.mission()["message"])
