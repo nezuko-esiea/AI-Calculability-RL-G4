@@ -22,6 +22,12 @@ Les variables
     parent   : pour chaque case, la case d'où on vient (sert à refaire le chemin)
     explored : les cases déjà traitées
     queue    : la file de priorité avec des tuples (f, case), gérée avec heapq
+    steps    : pour chaque case, le nombre de pas depuis le départ
+    max_depth : la plus grande profondeur qu'on a explorée
+    max_queue : la plus grande taille de la file pendant la recherche
+
+    search(start, target, client, metric) renvoie le chemin et un dictionnaire
+    stats avec explored, max_depth et max_queue.
 
 Ce que la fonction prend et renvoie
     search(start, target, client, metric) renvoie la liste des cases du chemin,
@@ -43,25 +49,30 @@ def search(start, target, client, metric="euclidean"):
     parent = {}             # parent[case] = la case d'où on est venu
     explored = set()
     queue = [(client.distance(start, target, metric), start)]   # (f, case)
-
+    steps = {start: 0}
+    max_depth = 0
+    max_queue = 1
     while queue:
         f, node = heapq.heappop(queue)      # la case au plus petit f
         if node in explored:
             continue
         explored.add(node)
-
+        max_depth = max(max_depth, steps[node])
         if node == target:
-            return build_path(parent, start, target)
+            stats = {"explored": len(explored), "max_depth": max_depth, "max_queue": max_queue}
+            return build_path(parent, start, target), stats
 
         for neighbor, cost in client.neighbors(node):
             new_g = g[node] + cost
             if neighbor not in g or new_g < g[neighbor]:
                 g[neighbor] = new_g
                 parent[neighbor] = node
+                steps[neighbor] = steps[node] + 1   
                 h = client.distance(neighbor, target, metric)   # coût estimé jusqu'à la cible
                 heapq.heappush(queue, (new_g + h, neighbor))
-
-    return None
+                max_queue = max(max_queue, len(queue)) 
+    stats = {"explored": len(explored), "max_depth": max_depth, "max_queue": max_queue}
+    return None, stats
 
 
 def build_path(parent, start, target):

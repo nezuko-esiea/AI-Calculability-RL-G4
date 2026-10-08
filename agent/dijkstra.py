@@ -25,34 +25,47 @@ Les variables
     parent   : pour chaque case, la case d'où on vient (sert à refaire le chemin)
     explored : les cases déjà traitées (leur g est définitif)
     queue    : la file de priorité avec des tuples (g, case), gérée avec heapq
+
+Les métriques (renvoyées dans le dictionnaire stats)
+    explored  : le nombre de cases sorties de la file
+    max_depth : la plus grande profondeur explorée, en pas depuis le départ
+    max_queue : la plus grande taille de la file pendant la recherche
 """
 import heapq
 
 
 def search(start, target, client):
-    """Renvoie le chemin [start, ..., target], ou None s'il n'y en a pas."""
+    """Renvoie (chemin, stats). Le chemin vaut None s'il n'y en a pas."""
     g = {start: 0}
     parent = {}
     explored = set()
     queue = [(0, start)]
+    steps = {start: 0}      # nombre de pas depuis le départ pour chaque case
+    max_depth = 0           # la plus grande profondeur explorée
+    max_queue = 1           # la plus grande taille de la file
 
     while queue:
         cost, node = heapq.heappop(queue)   # la case au plus petit g
         if node in explored:
             continue
         explored.add(node)
+        max_depth = max(max_depth, steps[node])
 
         if node == target:
-            return build_path(parent, start, target)
+            stats = {"explored": len(explored), "max_depth": max_depth, "max_queue": max_queue}
+            return build_path(parent, start, target), stats
 
         for neighbor, step_cost in client.neighbors(node):
             new_g = g[node] + step_cost
             if neighbor not in g or new_g < g[neighbor]:
                 g[neighbor] = new_g
                 parent[neighbor] = node
+                steps[neighbor] = steps[node] + 1
                 heapq.heappush(queue, (new_g, neighbor))
+                max_queue = max(max_queue, len(queue))
 
-    return None
+    stats = {"explored": len(explored), "max_depth": max_depth, "max_queue": max_queue}
+    return None, stats
 
 
 def build_path(parent, start, target):
