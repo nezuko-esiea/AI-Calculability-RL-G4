@@ -25,7 +25,7 @@ Les variables
 Ce que la fonction prend et renvoie
     search(start, target, client) renvoie la liste des cases du chemin, du départ
     jusqu'à la cible. Une case = un tuple (ligne, colonne).
-    Les requêtes vers la grid-api sont dans client.py, pas ici.
+    Les requêtes vers la grid-api sont dans client.py.
 
 A savoir
     BFS ne regarde pas les coûts. client.neighbors() renvoie des couples

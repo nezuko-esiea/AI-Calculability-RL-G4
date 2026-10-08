@@ -57,9 +57,6 @@ def build_path(parent, start, target):
     return path
 ```
 
-On remonte de la cible vers le départ en suivant les parents, puis on inverse. Même
-fonction que dans `astar.py`.
-
 ## En quoi c'est du BFS
 
 Tout tient dans le `deque` utilisé en FIFO. Le `popleft()` sort toujours la case
@@ -110,13 +107,3 @@ Ce n'est pas un bug : BFS ignore volontairement les coûts renvoyés par l'API. 
 optimal en nombre de mouvements et peut être arbitrairement mauvais en coût — c'est
 précisément sa limite, et la raison d'être des algorithmes pondérés.
 
-## Note sur client.py
-
-`follow()` a besoin d'un garde-fou que la version d'origine n'avait pas : quand la mission
-se termine avant la fin du chemin, la grid-api refuse le déplacement suivant et renvoie
-`{"error": ...}` au lieu de `{"move_cost": ...}`, ce qui faisait planter `follow()` avec
-un `KeyError: 'move_cost'`.
-
-Le cas ne se présente jamais avec A*, qui arrive au bout. Il se présente systématiquement
-avec BFS, qui se fait sortir au 3ᵉ pas sur 7. `follow()` s'arrête maintenant dès que le
-statut de la mission n'est plus `running`.
