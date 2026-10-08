@@ -1,6 +1,6 @@
 {
   "size": 8,
-  "connectivity": 8,
+  "connectivity": 4,
   "agents": ["robot"],
   "obstacles": [
     {"node": [2, 2], "weight": 9}, {"node": [2, 3], "weight": 9},
