@@ -24,7 +24,7 @@ qui permet de reconstruire le chemin à la fin.
 ```python
 seen = {start}
 parent = {}
-stack = \[start]
+stack = [start]
 
 ```
 
@@ -34,16 +34,16 @@ La pile démarre avec le départ, déjà marqué comme vu.
 while stack:
     node = stack.pop()
     if node == target:
-    return build\_path(parent, start, target)
+    return build_path(parent, start, target)
 ```
 
 On retire la case découverte le plus récemment. Si c'est la cible, terminé.
 
 ```python
-for neighbor, \_ in client.neighbors(node):
+for neighbor, _ in client.neighbors(node):
     if neighbor not in seen:
         seen.add(neighbor)
-        parent\[neighbor] = node
+        parent[neighbor] = node
         stack.append(neighbor)
 ```
 
@@ -51,14 +51,14 @@ Les voisins viennent de `client.neighbors()`, donc de la grid-api : l'algo n'a p
 de savoir si la connectivité est 4 ou 8, ni où sont les murs. Chaque voisin jamais vu est
 marqué, on note son parent, et il est placé au sommet de la pile.
 
-Le `\_` est le coût du déplacement, renvoyé par l'API mais jeté : DFS ne regarde pas les coûts.
+Le `_` est le coût du déplacement, renvoyé par l'API mais jeté : DFS ne regarde pas les coûts.
 
 ```python
-def build\_path(parent, start, target):
-    path = \[target]
+def build_path(parent, start, target):
+    path = [target]
 
-    while path\[-1] != start:
-        path.append(parent\[path\[-1]])
+    while path[-1] != start:
+        path.append(parent[path[-1]])
         path.reverse()
         return path
 ```
@@ -81,11 +81,11 @@ grille avec des cycles.
 
 ## Organisation des fichiers
 
-Même découpage que pour BFS et A\\\* : `client.py` contient toutes les requêtes HTTP et est
+Même découpage que pour BFS et A* : `client.py` contient toutes les requêtes HTTP et est
 partagé par le groupe, `dfs.py` contient seulement l'algo, `main.py` est le script à lancer.
 
 ```
-cd grid\_api
+cd grid_api
 docker run --rm -p 8000:8000 grid-api # terminal 1
 python main.py # terminal 2
 ```
