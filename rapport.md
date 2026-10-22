@@ -62,7 +62,7 @@ Configuration de référence : `default.json`, grille 8×8, connectivité 8, dé
 **Ce que donne la modification de la fonction de coût**
 
 - Avec `T` au lieu de `E`, le classement s'inversait : L_inf passait devant L2 alors qu'elle est dominée sur `C`, `E` et `M`. Pire, la configuration de référence affichait `F = 1.72` au lieu de 1.0 par construction. Un terme bruité pesant un quart de l'objectif décidait du résultat, et décidait mal.
-- Seuil d'arbitrage sur `a` : en gardant `b = c`, le palier à `C = 23` (deux fois plus cher, trois fois moins d'exploration) ne devient préférable que si `a < 0.29`. Au-dessus on privilégie le chemin optimal, en dessous on paie pour chercher moins.
+- Seuil d'arbitrage sur `a` : en gardant `b = c`, le palier à `C = 23` (deux fois plus cher, trois fois moins d'exploration que l'A\* classique) ne devient préférable à l'A\* classique que si `a < 0.29`. Il ne bat jamais le palier optimal, qui explore autant de cases (9) pour un coût de 11 (voir section 3). Au-dessus on privilégie le chemin optimal, en dessous on paie pour chercher moins.
 - Avec `k < 2.09` un seul palier reste faisable : `F` n'arbitre plus rien, l'expérience se réduit à « quel est le plus grand `w` qui conserve l'optimum ».
 
 **Ce que donne la modification des paramètres de recherche**
@@ -80,42 +80,67 @@ Configuration de référence : `default.json`, grille 8×8, connectivité 8, dé
 
 **Les métaheuristiques locales : hill climbing et recherche tabou**
 
-La grid fine coûte cher parce qu'elle évalue tous les points, y compris les 76 qui donnent exactement le même résultat. Une recherche locale choisit au contraire ses points d'après les résultats précédents. Nous en avons implémenté deux (`search_hill_climbing.py`, `search_tabou.py`) :
+Pourquoi :
+- La grid fine évalue tous les points, y compris les 76 qui donnent le même résultat
+- Une recherche locale choisit ses points d'après les résultats précédents
 
-- Voisins d'une solution `(w, h)` : `w ± 0.5` avec la même `h`, ou la même `w` avec une autre `h` admissible
-- Départ : l'A\* classique (`w = 1`, L2), c'est-à-dire la solution à battre
-- Hill climbing — va sur le meilleur voisin tant qu'il est strictement meilleur, s'arrête sinon
-- Tabou — va toujours sur le meilleur voisin non tabou, même s'il est moins bon ; les 10 dernières solutions quittées sont interdites ; renvoie la meilleure solution vue sur 20 tours
-- Chaque solution n'est évaluée qu'une fois : le nombre d'évaluations est le vrai coût de la recherche
+Le fonctionnement (`search_hill_climbing.py`, `search_tabou.py`) :
+- Voisins de `(w, h)` : `w ± 0.5` avec la même `h`, ou la même `w` avec une autre `h` admissible
+- Départ : l'A\* classique (`w = 1`, L2), la solution à battre
+- Hill climbing : va sur le meilleur voisin tant qu'il est strictement meilleur, s'arrête sinon
+- Tabou : va toujours sur le meilleur voisin non tabou, même s'il est moins bon
+- Tabou : les 10 dernières solutions quittées sont interdites, 20 tours, renvoie la meilleure solution vue
+- Chaque solution n'est évaluée qu'une fois (cache) : le nombre d'évaluations est le vrai coût
 
-Sur `default.json` :
+**Comparaison des méthodes sur `default.json`**
 
-| Méthode | Meilleur `F` | Évaluations |
-|---|---|---|
-| Grid ×10 | 1.000 | 12 |
-| Random | 0.767 | 50 |
-| Grid fine | 0.767 | 162 |
-| **Hill climbing** | **0.767** | **5** |
-| Recherche tabou | 0.767 | 41 |
+Référence : A\* classique (`w = 1`, L2), `F = 1.000`, `C = 11`, `E = 26`, `M = 36`.
 
-- Le hill climbing atteint l'optimum en 5 évaluations : un seul pas (`w = 1 → 1.5`) le pose sur le palier, et il s'arrête puisqu'aucun voisin n'est strictement meilleur.
-- La tabou ne fait pas mieux en `F`, mais elle parcourt le palier jusqu'à ses bords : L2 optimal de `w = 1.5` à `8.5`, puis le coût passe à 23 à `w = 9`. C'est la même information que la grid fine (`[1.3, 8.8]`), en 41 évaluations au lieu de 162.
-- Sur cette grille, le paysage n'a qu'un creux : la tabou n'a pas d'optimum local à quitter, donc son avantage sur le hill climbing (sortir d'un creux pour en chercher un meilleur) ne peut pas se voir ici. Il faudra le vérifier sur des grilles avec obstacles.
+| Méthode | Type | Évaluations | Meilleur `F` | Réglage | C | E | M | Palier L2 trouvé | Optimum ? |
+|---|---|---|---|---|---|---|---|---|---|
+| Grid ×10 | exhaustive, grossière | 12 | 1.000 | `w = 1`, L2 | 11 | 26 | 36 | aucun | non : saute de 1 à 10 |
+| Random | aléatoire | 50 | 0.767 | `w = 3.95`, L2 | 11 | 9 | 26 | 2 points | oui, 45 tirages sur 50 perdus |
+| Grid fine | exhaustive, fine | 162 | 0.767 | `w = 1.3`, L2 | 11 | 9 | 26 | `[1.3, 8.8]` | oui, bords exacts |
+| **Hill climbing** | locale | **5** | **0.767** | `w = 1.5`, L2 | 11 | 9 | 26 | début seulement | **oui, le moins cher** |
+| **Tabou** | locale | 41 | **0.767** | `w = 1.5`, L2 | 11 | 9 | 26 | **`[1.5, 8.5]`** | **oui, avec les bords** |
+
+- Hill climbing : même `F` que la grid fine, avec 32 fois moins d'évaluations (5 contre 162)
+- Tabou : même `F`, presque les mêmes bords de palier, avec 4 fois moins d'évaluations (41 contre 162)
+- Grid fine : la plus précise, la plus chère
+- Pas d'optimum local sur cette grille : l'avantage propre de la tabou (sortir d'un creux) ne peut pas se voir ici, à vérifier sur des grilles avec obstacles
+
+**Pourquoi le hill climbing ne fait que 5 évaluations**
+
+| N° | Solution | `F` | Pourquoi |
+|---|---|---|---|
+| 1 | `w = 1`, L2 | 1.000 | départ |
+| 2 | `w = 1.5`, L2 | 0.767 | tour 1, voisin `w + 0.5` |
+| 3 | `w = 1`, L∞ | 1.091 | tour 1, autre heuristique |
+| 4 | `w = 2`, L2 | 0.767 | tour 2, voisin `w + 0.5` |
+| 5 | `w = 1.5`, L∞ | 0.833 | tour 2, autre heuristique |
+
+- Tour 1 : `(0.5, L2)` rejeté (`w < 1`), `(1, L1)` rejeté (non admissible) : 2 voisins seulement. `(1.5, L2)` est meilleur, on s'y déplace
+- Tour 2 : `(1, L2)` déjà évalué, servi par le cache. Le meilleur voisin `(2, L2)` est à égalité (0.767), pas strictement meilleur : arrêt
+- Limite : il s'arrête au premier point du palier, sans savoir où il finit. C'est ce que la tabou ajoute
+
 **Le choix du pas**
 
-Même départ (`w = 1`, L2), même budget (20 tours, soit 41 évaluations), seul le pas change :
+Même départ (`w = 1`, L2), même budget (20 tours, 41 évaluations), seul le pas change :
 
-| Pas | Meilleur `F` | Palier L2 trouvé | Ce que la tabou voit |
+| Pas | Meilleur `F` | Palier L2 trouvé | Fin du palier atteinte ? |
 |---|---|---|---|
-| 0.1 | 0.767 | `[1.3, 3]` | le début exact du palier (1.3, comme la grid fine), mais n'atteint pas sa fin |
-| 0.2 | 0.767 | `[1.4, 5]` | n'atteint pas non plus la fin du palier |
-| **0.5** | **0.767** | **`[1.5, 8.5]`** | **le palier entier, et sa fin : à `w = 9` le coût passe à 23** |
-| 1 | 0.767 | `[2, 8]` | dépasse le palier jusqu'à la zone Greedy (infaisable dès `w = 15`), mais ses bords sont imprécis |
+| 0.1 | 0.767 | `[1.3, 3]` | non, mais début exact (comme la grid fine) |
+| 0.2 | 0.767 | `[1.4, 5]` | non |
+| **0.5** | **0.767** | **`[1.5, 8.5]`** | **oui : le coût passe à 23 à `w = 9`** |
+| 1 | 0.767 | `[2, 8]` | oui, va jusqu'à la zone Greedy, bords imprécis |
 
-- Tous les pas trouvent l'optimum `F = 0.767` : sur cette grille, le pas ne change pas le meilleur `F`, seulement ce qu'on apprend du paysage.
-- Un petit pas donne des bords précis mais avance lentement : sur un palier, tous les voisins se valent, et la tabou le parcourt point par point. À 0.1, 20 tours ne couvrent que `[1, 3]`.
-- Un grand pas couvre beaucoup de terrain, mais il saute les transitions : à 1, la tabou ne voit ni le début réel du palier (1.3) ni la transition à `w = 1.1`.
-- Nous avons gardé **0.5**, le plus petit pas qui parcourt le palier entier en 20 tours. Il reste bien plus petit que la moitié de l'écart de la grid ×10 autour de l'optimum (les points 1 et 10, soit 4.5). Le prix : il voit le début du palier à 1.5 au lieu de 1.3, une précision que seul un pas de 0.1 donne.
+- Tous les pas trouvent l'optimum : le pas change ce qu'on apprend du paysage, pas le meilleur `F`
+- Petit pas : bords précis, mais avance lentement sur le palier (tous les voisins se valent)
+- Grand pas : couvre plus de terrain, mais saute les transitions
+- Point de départ : le pas de 0.2 de l'exemple du cours, trop lent sur le palier
+- Choix final : **0.5**, le plus petit pas qui parcourt le palier entier en 20 tours
+- Prix : début du palier vu à 1.5 au lieu de 1.3
+- Non optimisés : le nombre de tours (20) et la taille de la liste tabou (10), choisis comme budget raisonnable
 
 **Pour reproduire les résultats**
 
@@ -139,36 +164,155 @@ python search_tabou.py configs/default.json --w-max 100 --step 0.5 --csv resulta
 python search_tabou.py configs/default.json --w-max 100 --step 1   --csv resultats/tabou_pas_1.csv
 ```
 
+Pour les autres configurations (section 3), les mêmes commandes avec `configs/<config>.json` et `--csv resultats/<config>/<méthode>.csv`. La variation des contraintes se lance sans la grid-api, à partir des CSV :
+
+```
+python sensibilite.py
+```
+
 ---
 
 ## 3. Test sur configuration variable
 
-*À compléter — mesures à produire.*
+**Le protocole**
 
-Commandes :
+- Quatre grilles de plus, toutes 8×8, de (0,0) à (7,7), seuil 25 :
+  - `deux_murs` : deux colonnes d'obstacles (poids 3 et 8) qui coupent toute la grille
+  - `obstacle_u` : un obstacle en U (poids 9)
+  - `deux_murs_con4`, `obstacle_u_con4` : les mêmes en connectivité 4
+- Les mêmes commandes que sur `default.json`, mêmes `a`, `b`, `c` et `k`
+- Résultats : `agent/resultats/<config>/` (`baseline.csv`, `grossier.csv`, `random.csv`, `fin.csv`, `hill_climbing.csv`, `tabou.csv`)
 
-```
-python baseline.py configs/obstacle_u.json --csv baseline_u.csv
-python search_grid.py configs/obstacle_u.json --w-min 1 --w-max 9 --step 0.1 --csv fin_u.csv
-python baseline.py configs/deux_murs.json --csv baseline_murs.csv
-python search_grid.py configs/deux_murs.json --w-min 1 --w-max 9 --step 0.1 --csv fin_murs.csv
-```
+**Les baselines**
 
-Et les variantes `_con4` pour l'effet de la connectivité.
+| Config | Conn. | `C*` | A\* (`E`, `M`) | Dijkstra `F` | Meilleur Greedy `F` |
+|---|---|---|---|---|---|
+| default | 8 | 11 | 26, 36 | 1.249 | 2.242, infaisable |
+| deux_murs | 8 | 20.5 | 46, 27 | 1.024 | **0.879** (C = 24) |
+| deux_murs_con4 | 4 | 23 | 64, 10 | **0.975** | 1.034 (L1), L2 et L∞ infaisables |
+| obstacle_u | 8 | 12.5 | 44, 46 | **0.965** | 1.572, infaisable |
+| obstacle_u_con4 | 4 | 14 | 54, 24 | **0.910** | **0.705** (L1, C = 14) |
 
-Questions auxquelles répondre :
+- L'A\* classique n'est pas toujours la meilleure baseline : sur 4 grilles sur 5, Dijkstra ou Greedy font mieux
+- Deux murs : on doit les traverser de toute façon, donc foncer vers la cible coûte peu (24 contre 20.5). Greedy est faisable et bat A\*
+- Deux murs en connectivité 4 : A\* explore 64 cases comme Dijkstra, quelle que soit l'heuristique. L'estimation ne guide plus rien
+- Le seuil est strict : sur `deux_murs_con4`, Greedy L2 et L∞ trouvent un coût d'exactement 25, donc la mission échoue
 
-- Le palier `[1.3, 8.8]` tient-il sur les autres grilles, ou se déplace-t-il ?
-- La métrique gagnante reste-t-elle L2 ?
-- En connectivité 4, L1 redevient admissible — change-t-elle le résultat ?
-- Y a-t-il un `w` qui fonctionne partout, ou faut-il un `w` par configuration ?
+**Le meilleur réglage par configuration**
+
+| Config | Meilleur `F` | `h` | Palier de `w` | C | E | M |
+|---|---|---|---|---|---|---|
+| default | 0.767 | L2 | `[1.3, 8.8]` | 11 | 9 | 26 |
+| deux_murs | 0.835 | L∞ | `[5.8, 7.2]` | **21** | 10 | 29 |
+| deux_murs_con4 | 0.939 | L∞ | `[1.8, 1.9]` | 23 | 42 | 11 |
+| obstacle_u | 0.715 | L2 | `[4.1, 11]` au moins | 12.5 | 12 | 27 |
+| obstacle_u_con4 | 0.705 | L1 | `[1.1, 100]` | 14 | 15 | 13 |
+
+- Gain sur l'A\* classique : de 6 % (`deux_murs_con4`) à 30 % (`obstacle_u_con4`)
+- 4 grilles sur 5 gardent le coût optimal. Seule `deux_murs` accepte un chemin 2.4 % plus cher (21 contre 20.5) pour explorer 10 cases au lieu de 46
+
+**Les méthodes comparées** (meilleur `F` / évaluations)
+
+| Config | Grid ×10 | Random | Grid fine | Hill climbing | Tabou |
+|---|---|---|---|---|---|
+| default | 1.000 / 12 | 0.767 / 50 | 0.767 / 162 | **0.767 / 5** | 0.767 / 41 |
+| deux_murs | 0.879 / 12 | 0.869 / 50 | 0.835 / 162 | 0.946 / 6 | **0.835 / 35** |
+| deux_murs_con4 | 1.000 / 18 | 1.012 / 50 | **0.939 / 243** | 1.000 / 4 | 0.966 / 46 |
+| obstacle_u | **0.715 / 12** | 0.715 / 50 | 0.715 / 162 | 0.737 / 9 | 0.715 / 41 |
+| obstacle_u_con4 | 0.705 / 18 | 0.705 / 50 | 0.705 / 243 | **0.705 / 7** | 0.705 / 58 |
+
+- Hill climbing : le moins cher (4 à 9 évaluations), trouve l'optimum sur 2 grilles sur 5
+- Hill climbing coincé sur 3 grilles :
+  - `deux_murs` : optimum local en L∞ à `w = 1.5` (`F = 0.946`)
+  - `obstacle_u` : palier intermédiaire `[2.5, 3]` (`F = 0.737`), juste avant le vrai palier qui commence à 4.1
+  - `deux_murs_con4` : ne quitte pas son point de départ
+- Tabou : trouve l'optimum de la grid fine sur 4 grilles sur 5, avec environ 4 fois moins d'évaluations
+- **Tabou : sort exactement des optimums locaux où le hill climbing s'arrête** (`deux_murs`, `obstacle_u`). C'est l'avantage qu'on ne pouvait pas voir sur `default.json`
+- Échec de la tabou sur `deux_murs_con4` : l'optimum est un palier de 0.1 de large, et le pas de 0.5 saute par-dessus (1.5 puis 2.0). Seule la grid fine le trouve
+- Grid ×10 : suffit quand le palier s'étend loin (`obstacle_u`, `obstacle_u_con4`), car `w = 10` est dedans
+- Random uniforme : gaspille toujours la majorité de ses tirages dans `[10, 100]`
+
+**Réponses aux questions**
+
+- *Le palier `[1.3, 8.8]` tient-il ailleurs ?* Non. Il se déplace et change de largeur : de 0.1 de large (`deux_murs_con4`) à presque tout l'intervalle (`obstacle_u_con4`)
+- *La métrique gagnante reste-t-elle L2 ?* Non. L2 sur les grilles sans murs, L∞ derrière les murs, L1 sur le U en connectivité 4
+- *En connectivité 4, L1 change-t-elle le résultat ?*
+  - Oui sur le U : elle compte exactement les pas, et Greedy avec L1 trouve le chemin optimal en explorant 15 cases au lieu de 54
+  - Non sur les deux murs : aucune heuristique ne réduit l'exploration de l'A\* classique
+- *Y a-t-il un `w` qui fonctionne partout ?* Pas d'optimum commun, mais deux compromis (grid fine des 5 grilles, L1 exclue car non admissible en connectivité 8) :
+
+| Critère | Réglage | `F` moyen | Pire `F` | Commentaire |
+|---|---|---|---|---|
+| Meilleure moyenne | L2, `w ≈ 5.3` | **0.845** | 1.020 | optimal sur `default` et `obstacle_u`, un peu moins bon que l'A\* classique sur `deux_murs_con4` |
+| Meilleur pire cas | L∞, `w ≈ 1.6` | 0.890 | **0.951** | bat l'A\* classique sur les 5 grilles, sans être optimal nulle part |
+
+**La variation des contraintes et des poids** (`sensibilite.py`)
+
+- Méthode : **un seul paramètre varie à la fois**, les autres restent à `k = 2.5`, seuil = 25, `a = 0.5`
+- Pas de nouvelle recherche : les CSV contiennent déjà `C`, `E` et `M`, qui ne dépendent pas des contraintes. On recalcule seulement la faisabilité et `F`
+- Résultats complets : `agent/resultats/sensibilite.csv`
+
+*Variation de `k`* :
+- Avec `a = 0.5`, **`k` ne change presque rien** : le meilleur réglage garde déjà un coût optimal ou presque
+- Seule exception : `deux_murs` avec `k = 1`, où le chemin à 21 est interdit. Le meilleur devient L∞ `w ∈ [5.3, 5.7]`, au coût optimal 20.5 (`F = 0.871` au lieu de 0.835)
+- Avec `a = 0.2`, `k` devient actif sur `deux_murs` :
+
+| `k` | Meilleur réglage sur `deux_murs` (`a = 0.2`) | C |
+|---|---|---|
+| 1.0 | L∞, `w ∈ [5.3, 5.7]` | 20.5 |
+| 1.1 | L∞, `w ∈ [5.8, 7.2]` | 21 |
+| ≥ 1.2 | L∞, `w ≥ 9.5` (comportement Greedy) | 24 |
+
+- Conclusion : **`k` et `a` agissent ensemble**. `k` ne rejette quelque chose que si `F` est prêt à payer en coût, c'est-à-dire si `a` est faible
+
+*Variation du seuil de la mission* :
+
+| Seuil | Grilles avec au moins une solution faisable |
+|---|---|
+| 12 | `default` seulement |
+| 15, 20 | `default`, `obstacle_u`, `obstacle_u_con4` |
+| 22 | toutes sauf `deux_murs_con4` |
+| ≥ 25 | toutes |
+
+- Le seuil agit comme un filtre tout ou rien : en dessous du coût optimal `C*`, la mission devient impossible
+- Au-dessus, il ne change jamais le meilleur réglage, qui garde un coût proche de l'optimum
+
+*Variation du poids du coût `a`* (`b = c = (1 − a) / 2`) :
+
+| `a` | `default` | `deux_murs` | `obstacle_u` |
+|---|---|---|---|
+| 0.1, 0.2 | L2 `[1.3, 8.8]`, C 11 | L∞ `w ≥ 9.5`, **C 24** | L2 `[4.1, 11]`, C 12.5 |
+| 0.3 à 0.6 | L2 `[1.3, 8.8]`, C 11 | L∞ `[5.8, 7.2]`, C 21 | L2 `[4.1, 11]`, C 12.5 |
+| 0.8 | L2 `[1.3, 8.8]`, C 11 | L∞ `[5.3, 5.7]`, **C 20.5** | L2 `[4.1, 11]`, C 12.5 |
+| 1.0 | l'A\* classique | l'A\* classique | l'A\* classique |
+
+- Le meilleur réglage est **très stable** : sur 4 grilles sur 5, il ne change pas entre `a = 0.1` et `a = 0.8`
+- Seule `deux_murs` bascule : plus le coût pèse, plus le chemin choisi est cher (24, puis 21, puis 20.5)
+- À `a = 1`, seul le coût compte : tous les réglages au coût optimal sont à égalité, et l'A\* classique suffit
+- Sur `default`, le chemin à 23 ne gagne pour aucune valeur de `a` : il explore autant de cases que le palier optimal (9) avec un tas plus grand. Il bat l'A\* classique quand `a < 0.29`, mais jamais l'optimum
 
 ---
 
 ## 4. Gérer la recherche quand la configuration change
 
 - **Normaliser par la référence de chaque grille**, ce que fait déjà `F`. Un `F` calculé sur une grille est comparable à un `F` calculé sur une autre, puisque les deux sont rapportés à l'A\* classique de leur propre configuration.
-- **Chercher un intervalle robuste plutôt qu'une valeur.** Le palier est large, donc on peut prendre l'intersection des paliers optimaux de plusieurs grilles. Un `w` au centre de cette intersection résiste à un changement de configuration ; un `w` au bord d'un palier bascule au premier changement.- **Optimiser sur un panel de configurations au lieu d'une seule.** Minimiser le `F` moyen rend la solution bonne en général ; minimiser le pire `F` la rend sûre dans le cas défavorable. Les deux sont défendables, le choix dépend de l'usage.
+- **Chercher un intervalle robuste plutôt qu'une valeur.** Le palier est large, donc on peut prendre l'intersection des paliers optimaux de plusieurs grilles. Un `w` au centre de cette intersection résiste à un changement de configuration ; un `w` au bord d'un palier bascule au premier changement. Sur nos cinq grilles, cette intersection est vide : le palier de `deux_murs_con4` (`[1.8, 1.9]`) ne recoupe pas celui d'`obstacle_u` (à partir de 4.1). Il faut alors accepter un compromis.
+- **Optimiser sur un panel de configurations au lieu d'une seule.** Minimiser le `F` moyen rend la solution bonne en général ; minimiser le pire `F` la rend sûre dans le cas défavorable. Les deux sont défendables, le choix dépend de l'usage. Nos mesures donnent deux réponses différentes : L2 à `w ≈ 5.3` pour la moyenne, L∞ à `w ≈ 1.6` pour le pire cas (section 3).
 - **Garder `a`, `b`, `c` fixes.** Ils expriment une préférence — ce qui compte pour nous entre coût, effort et mémoire — pas une propriété de la grille. Les réajuster par configuration reviendrait à changer la définition de « meilleur » à chaque mesure, et plus rien ne serait comparable.
 - **Lier `h` à la connectivité et non à la grille.** L'admissibilité ne dépend que du modèle de déplacement : L1 est utilisable en connectivité 4, interdite en 8. C'est une règle déterministe, pas une recherche.
 - **Si rechercher à chaque changement coûte trop cher**, apprendre une règle plutôt que refaire la recherche : relier le `w` optimal à des caractéristiques mesurables de la grille — densité d'obstacles, poids moyen, rapport entre la distance départ-cible et la taille. La recherche ne tourne alors qu'une fois, hors ligne, sur un échantillon de configurations.
+
+---
+
+## 5. Ce que nous retenons
+
+- **Le paysage de `F` est un escalier** : le meilleur réglage est un intervalle de `w`, pas une valeur. Sa largeur dit à quel point le choix est robuste
+- **Pondérer `h` paie** : de 6 à 30 % de mieux que l'A\* classique sur les 5 grilles, avec le coût optimal conservé sur 4 grilles sur 5
+- **La meilleure heuristique dépend de la grille** : L2 sur les grilles ouvertes, L∞ derrière des murs, L1 en connectivité 4 sur le U
+- **Pas de réglage optimal partout** : L2 `w ≈ 5.3` pour la moyenne, L∞ `w ≈ 1.6` pour le pire cas
+- **Aucune méthode de recherche ne gagne partout** :
+  - hill climbing : le moins cher, mais coincé sur le premier optimum local (3 grilles sur 5)
+  - tabou : sort de ces optimums, environ 4 fois moins cher que la grid fine, mais rate un optimum plus étroit que son pas
+  - grid fine : la plus sûre, la plus chère
+- **Les contraintes et les poids agissent ensemble** : `k` ne rejette quelque chose que si `a` est faible, et le seuil n'est qu'un filtre tout ou rien
+- **Stratégie recommandée** : une grid ×10 pour situer les ordres de grandeur, puis une recherche tabou depuis le meilleur point, avec un pas plus petit que les paliers recherchés
