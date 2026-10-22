@@ -1,0 +1,14 @@
+{
+  "size": 8,
+  "connectivity": 8,
+  "agents": ["robot"],
+  "obstacles": [
+    {"node": [1, 1], "weight": 5},
+    {"node": [2, 2], "weight": 5},
+    {"node": [3, 3], "weight": 8},
+    {"node": [4, 4], "weight": 8},
+    {"node": [2, 5], "weight": 3},
+    {"node": [5, 2], "weight": 3}
+  ],
+  "mission": {"start": [0, 0], "target": [7, 7], "threshold": 25}
+}
