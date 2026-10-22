@@ -18,7 +18,7 @@ Configuration de référence : `default.json`, grille 8×8, connectivité 8, dé
 
 - `w ∈ [1, 100]` — borne basse à 1 parce qu'en dessous A\* domine Dijkstra dès que `h` est admissible : on perd en efficacité sans rien gagner. Borne haute mesurée, pas choisie : de `w = 100` à `w = 100000`, les huit points testés donnent exactement `C = 43.5`, `E = 8`, `M = 27`. L'algorithme est devenu Greedy et plus rien ne change.
 - `h` admissible — L1 compte une diagonale 2 alors qu'elle coûte 1.5, donc elle surestime en connectivité 8 et la garantie d'optimalité tombe. Elle est exclue dès le tirage plutôt que testée puis rejetée.
-- `C ≤ k·C*` avec `k = 2.5` — les coûts possibles sur cette grille sont 11, 23 et 43.5, soit des ratios de 1, 2.09 et 3.95. En dessous de 2.09 un seul palier survit et il n'y a plus d'arbitrage à faire ; au-dessus de 3.95 la contrainte ne rejette plus rien. 2.5 laisse deux paliers en concurrence.
+- `C ≤ k·C*` avec `k = 2.5` — les coûts possibles sur cette grille sont 11, 23 et 43.5, soit des ratios de 1, 2.09 et 3.95. En dessous de 2.09, seul le coût 11 reste faisable ; au-dessus de 3.95, la contrainte ne rejette plus rien. 2.5 laisse les coûts 11 et 23 faisables. En pratique, le chemin à 23 n'est jamais choisi : il explore autant de cases que le meilleur chemin à 11 (voir section 3).
 - `C < seuil de mission` (25) — contrainte du problème, pas un choix. L'API exige un coût strictement inférieur.
 - `T ≤ 3 s` — garde-fou contre une recherche qui ne terminerait pas.
 
@@ -62,8 +62,8 @@ Configuration de référence : `default.json`, grille 8×8, connectivité 8, dé
 **Ce que donne la modification de la fonction de coût**
 
 - Avec `T` au lieu de `E`, le classement s'inversait : L_inf passait devant L2 alors qu'elle est dominée sur `C`, `E` et `M`. Pire, la configuration de référence affichait `F = 1.72` au lieu de 1.0 par construction. Un terme bruité pesant un quart de l'objectif décidait du résultat, et décidait mal.
-- Seuil d'arbitrage sur `a` : en gardant `b = c`, le palier à `C = 23` (deux fois plus cher, trois fois moins d'exploration que l'A\* classique) ne devient préférable à l'A\* classique que si `a < 0.29`. Il ne bat jamais le palier optimal, qui explore autant de cases (9) pour un coût de 11 (voir section 3). Au-dessus on privilégie le chemin optimal, en dessous on paie pour chercher moins.
-- Avec `k < 2.09` un seul palier reste faisable : `F` n'arbitre plus rien, l'expérience se réduit à « quel est le plus grand `w` qui conserve l'optimum ».
+- Seuil d'arbitrage sur `a` : en gardant `b = c`, le palier à `C = 23` (deux fois plus cher que l'A\* classique, mais avec trois fois moins d'exploration) ne bat l'A\* classique que si `a < 0.29`. Il ne bat jamais le palier optimal, qui explore autant de cases (9) pour un coût de 11. Sur cette grille, baisser `a` ne fait donc jamais choisir un chemin plus cher (voir section 3).
+- Avec `k < 2.09`, seul le coût 11 reste faisable : `F` ne départage plus que l'effort et la mémoire entre les réglages au coût optimal. Le meilleur réglage ne change pas, puisqu'il avait déjà le coût optimal (voir section 3).
 
 **Ce que donne la modification des paramètres de recherche**
 
@@ -200,14 +200,19 @@ python sensibilite.py
 
 **Le meilleur réglage par configuration**
 
-| Config | Meilleur `F` | `h` | Palier de `w` | C | E | M |
-|---|---|---|---|---|---|---|
-| default | 0.767 | L2 | `[1.3, 8.8]` | 11 | 9 | 26 |
-| deux_murs | 0.835 | L∞ | `[5.8, 7.2]` | **21** | 10 | 29 |
-| deux_murs_con4 | 0.939 | L∞ | `[1.8, 1.9]` | 23 | 42 | 11 |
-| obstacle_u | 0.715 | L2 | `[4.1, 11]` au moins | 12.5 | 12 | 27 |
-| obstacle_u_con4 | 0.705 | L1 | `[1.1, 100]` | 14 | 15 | 13 |
+| Config | Meilleure baseline | Meilleur `F` | `h` | Palier de `w` | `w` conseillé | C | E | M | Gain sur la meilleure baseline |
+|---|---|---|---|---|---|---|---|---|---|
+| default | A\* (L2), `F` = 1.000 | 0.767 | L2 | `[1.3, 8.8]` | 5 | 11 | 9 | 26 | 23 % |
+| deux_murs | Greedy, `F` = 0.879 | 0.835 | L∞ | `[5.8, 7.2]` | 6.5 | **21** | 10 | 29 | 5 % |
+| deux_murs_con4 | Dijkstra, `F` = 0.975 | 0.939 | L∞ | `[1.8, 1.9]` | 1.8 ou 1.9 | 23 | 42 | 11 | 4 % |
+| obstacle_u | Dijkstra, `F` = 0.965 | 0.715 | L2 | `[4.1, 11]` au moins | 7.5 | 12.5 | 12 | 27 | 26 % |
+| obstacle_u_con4 | Greedy (L1), `F` = 0.705 | 0.705 | L1 | `[1.1, 100]` | 10 | 14 | 15 | 13 | 0 % |
 
+- `w` conseillé : une valeur testée vers le milieu du palier, pour garder de la marge des deux côtés si la grille change un peu
+- `deux_murs_con4` : le palier ne fait que 0.1 de large, il n'y a aucune marge
+- Meilleure baseline : la meilleure des trois références (Dijkstra, A\*, Greedy) sur la grille. L'A\* classique n'est la meilleure que sur `default`
+- Sur `obstacle_u_con4`, la recherche ne fait pas mieux que Greedy avec L1 : c'est le même chemin. Avec L1, un très grand `w` est déjà optimal sur cette grille
+- Sur `deux_murs` et `deux_murs_con4`, le gain sur la meilleure baseline est faible (4 à 5 %) : le gros du gain annoncé sur l'A\* classique vient de ce que Greedy ou Dijkstra faisaient déjà mieux que lui
 - Gain sur l'A\* classique : de 6 % (`deux_murs_con4`) à 30 % (`obstacle_u_con4`)
 - 4 grilles sur 5 gardent le coût optimal. Seule `deux_murs` accepte un chemin 2.4 % plus cher (21 contre 20.5) pour explorer 10 cases au lieu de 46
 
@@ -224,13 +229,13 @@ python sensibilite.py
 - Hill climbing : le moins cher (4 à 9 évaluations), trouve l'optimum sur 2 grilles sur 5
 - Hill climbing coincé sur 3 grilles :
   - `deux_murs` : optimum local en L∞ à `w = 1.5` (`F = 0.946`)
-  - `obstacle_u` : palier intermédiaire `[2.5, 3]` (`F = 0.737`), juste avant le vrai palier qui commence à 4.1
+  - `obstacle_u` : palier intermédiaire `[2.2, 3]` (`F = 0.737`), juste avant le vrai palier qui commence à 4.1
   - `deux_murs_con4` : ne quitte pas son point de départ
 - Tabou : trouve l'optimum de la grid fine sur 4 grilles sur 5, avec environ 4 fois moins d'évaluations
 - Tabou : sur `deux_murs` et `obstacle_u`, elle sort des optimums locaux où le hill climbing s'arrête. On ne pouvait pas le voir sur `default.json`, qui n'en a pas
 - Échec de la tabou sur `deux_murs_con4` : l'optimum est un palier de 0.1 de large, et le pas de 0.5 saute par-dessus (1.5 puis 2.0). Seule la grid fine le trouve
 - Grid ×10 : suffit quand le palier s'étend loin (`obstacle_u`, `obstacle_u_con4`), car `w = 10` est dedans
-- Random uniforme : gaspille toujours la majorité de ses tirages dans `[10, 100]`
+- Random uniforme : 45 à 47 tirages sur 50 tombent au-dessus de `w = 10`. Ils ne servent que si le palier optimal s'étend jusque-là (`obstacle_u_con4`) ; ailleurs, ils sont infaisables (`default`, `obstacle_u`) ou moins bons que l'optimum (`deux_murs`, `deux_murs_con4`)
 
 **Ce qui change d'une grille à l'autre**
 
@@ -305,7 +310,7 @@ python sensibilite.py
 ## 5. Ce que nous retenons
 
 - Le paysage de `F` est un escalier : le meilleur réglage est un intervalle de `w`, pas une valeur. Sa largeur dit à quel point le choix est robuste
-- Pondérer `h` paie : de 6 à 30 % de mieux que l'A\* classique sur les 5 grilles, avec le coût optimal conservé sur 4 grilles sur 5
+- Pondérer `h` paie : de 6 à 30 % de mieux que l'A\* classique sur les 5 grilles, avec le coût optimal conservé sur 4 grilles sur 5. Face à la meilleure des trois baselines, le gain va de 0 % (`obstacle_u_con4`, où Greedy avec L1 est déjà optimal) à 26 %
 - La meilleure heuristique dépend de la grille : L2 sur les grilles ouvertes, L∞ derrière des murs, L1 en connectivité 4 sur le U
 - Pas de réglage optimal partout : L2 `w ≈ 5.3` pour la moyenne, L∞ `w ≈ 1.6` pour le pire cas
 - Aucune méthode de recherche ne gagne partout :
