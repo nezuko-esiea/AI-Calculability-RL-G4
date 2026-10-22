@@ -101,7 +101,21 @@ Sur `default.json` :
 - Le hill climbing atteint l'optimum en 5 évaluations : un seul pas (`w = 1 → 1.5`) le pose sur le palier, et il s'arrête puisqu'aucun voisin n'est strictement meilleur.
 - La tabou ne fait pas mieux en `F`, mais elle parcourt le palier jusqu'à ses bords : L2 optimal de `w = 1.5` à `8.5`, puis le coût passe à 23 à `w = 9`. C'est la même information que la grid fine (`[1.3, 8.8]`), en 41 évaluations au lieu de 162.
 - Sur cette grille, le paysage n'a qu'un creux : la tabou n'a pas d'optimum local à quitter, donc son avantage sur le hill climbing (sortir d'un creux pour en chercher un meilleur) ne peut pas se voir ici. Il faudra le vérifier sur des grilles avec obstacles.
-- Le pas compte beaucoup sur un palier : avec un pas de 0.2 au départ de `w = 3.95`, la tabou passe 13 tours à descendre le palier point par point, sans rien apprendre.
+**Le choix du pas**
+
+Même départ (`w = 1`, L2), même budget (20 tours, soit 41 évaluations), seul le pas change :
+
+| Pas | Meilleur `F` | Palier L2 trouvé | Ce que la tabou voit |
+|---|---|---|---|
+| 0.1 | 0.767 | `[1.3, 3]` | le début exact du palier (1.3, comme la grid fine), mais n'atteint pas sa fin |
+| 0.2 | 0.767 | `[1.4, 5]` | n'atteint pas non plus la fin du palier |
+| **0.5** | **0.767** | **`[1.5, 8.5]`** | **le palier entier, et sa fin : à `w = 9` le coût passe à 23** |
+| 1 | 0.767 | `[2, 8]` | dépasse le palier jusqu'à la zone Greedy (infaisable dès `w = 15`), mais ses bords sont imprécis |
+
+- Tous les pas trouvent l'optimum `F = 0.767` : sur cette grille, le pas ne change pas le meilleur `F`, seulement ce qu'on apprend du paysage.
+- Un petit pas donne des bords précis mais avance lentement : sur un palier, tous les voisins se valent, et la tabou le parcourt point par point. À 0.1, 20 tours ne couvrent que `[1, 3]`.
+- Un grand pas couvre beaucoup de terrain, mais il saute les transitions : à 1, la tabou ne voit ni le début réel du palier (1.3) ni la transition à `w = 1.1`.
+- Nous avons gardé **0.5**, le plus petit pas qui parcourt le palier entier en 20 tours. Il reste bien plus petit que la moitié de l'écart de la grid ×10 autour de l'optimum (les points 1 et 10, soit 4.5). Le prix : il voit le début du palier à 1.5 au lieu de 1.3, une précision que seul un pas de 0.1 donne.
 
 **Pour reproduire les résultats**
 
@@ -114,6 +128,15 @@ python search_random.py        configs/default.json --w-min 1 --w-max 100 --draw
 python search_grid.py          configs/default.json --w-min 1 --w-max 9 --step 0.1 --csv resultats/etape3_fin.csv
 python search_hill_climbing.py configs/default.json --w-max 100 --csv resultats/hc_default.csv
 python search_tabou.py         configs/default.json --w-max 100 --csv resultats/tabou_default.csv
+```
+
+Et la comparaison des pas :
+
+```
+python search_tabou.py configs/default.json --w-max 100 --step 0.1 --csv resultats/tabou_pas_0.1.csv
+python search_tabou.py configs/default.json --w-max 100 --step 0.2 --csv resultats/tabou_pas_0.2.csv
+python search_tabou.py configs/default.json --w-max 100 --step 0.5 --csv resultats/tabou_pas_0.5.csv
+python search_tabou.py configs/default.json --w-max 100 --step 1   --csv resultats/tabou_pas_1.csv
 ```
 
 ---
