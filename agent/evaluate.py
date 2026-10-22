@@ -39,10 +39,10 @@ import requests
 
 import weighted_astar
 
-# noms du cours -> noms attendus par la grid-api
+
 HEURISTICS = {"L1": "manhattan", "L2": "euclidean", "L_inf": "chebyshev"}
 
-# valeurs provisoires : à décider en groupe
+# valeurs provisoires 
 WEIGHTS = (0.5, 0.25, 0.25)     # (a, b, c) : poids du coût, du temps et de la mémoire, total = 1
 K = 1.2                         # on accepte un chemin jusqu'à 20 % plus cher que le meilleur
 T_MAX = 3.0                     # temps de recherche maximum, en secondes
