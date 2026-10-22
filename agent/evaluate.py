@@ -60,7 +60,7 @@ import requests
 
 import weighted_astar
 
-# noms du cours -> noms attendus par la grid-api
+
 HEURISTICS = {"L1": "manhattan", "L2": "euclidean", "L_inf": "chebyshev"}
 
 # valeurs provisoires : à décider en groupe
