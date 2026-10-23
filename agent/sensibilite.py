@@ -23,6 +23,9 @@ Ce qu'on fait varier
     k avec a = 0.2 : une seule expérience croisée, parce qu'avec a = 0.5 le
              meilleur réglage garde déjà un coût presque optimal, donc k ne
              rejette presque rien ; avec a = 0.2 on voit quand k devient actif
+    b avec a = 0.5 : le partage du reste entre l'effort (b) et la mémoire
+             (c = 0.5 - b). Avec b = c on ne voit pas ce qui se passe quand
+             l'effort et la mémoire tirent dans des sens opposés
 
 Les données utilisées
     Pour chaque config, toutes les évaluations de toutes les méthodes (grid
@@ -62,6 +65,7 @@ K, SEUIL, A, W_MAX = 2.5, 25, 0.5, 100
 VALEURS_K = [1.0, 1.1, 1.2, 1.5, 2.0, 2.5, 3.0, 4.0]
 VALEURS_SEUIL = [12, 15, 20, 22, 25, 30, 45]
 VALEURS_A = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.8, 1.0]
+VALEURS_B = [0.5, 0.375, 0.25, 0.125, 0.0]     # avec a = 0.5, donc c = 0.5 - b
 
 
 def charger(nom):
@@ -78,9 +82,16 @@ def charger(nom):
     return list(points.values()), ref
 
 
-def meilleur(points, ref, k=K, seuil=SEUIL, a=A):
-    """Le meilleur réglage faisable pour ces valeurs, et le palier qui va avec."""
-    b = c = (1 - a) / 2
+def meilleur(points, ref, k=K, seuil=SEUIL, a=A, b=None):
+    """Le meilleur réglage faisable pour ces valeurs, et le palier qui va avec.
+
+    Sans b, le reste se partage à égalité : b = c = (1 - a) / 2.
+    Avec b, la mémoire prend ce qui reste : c = 1 - a - b.
+    """
+    if b is None:
+        b = c = (1 - a) / 2
+    else:
+        c = 1 - a - b
     faisables = []
     for p in points:
         if p["w"] > W_MAX or p["C"] > k * ref["C"] or p["C"] >= seuil:
@@ -135,6 +146,8 @@ def main():
     experience("Variation du poids du coût a (b = c = (1 - a) / 2)", "a", VALEURS_A, donnees, lignes)
     # k ne compte que si le coût pèse peu : on le refait varier avec a = 0.2
     experience("Variation de k quand le coût pèse peu", "k", VALEURS_K, donnees, lignes, a=0.2)
+    # avec b = c on ne voit pas l'effet de l'effort contre la mémoire : on les sépare
+    experience("Partage entre effort b et mémoire c = 0.5 - b", "b", VALEURS_B, donnees, lignes, a=0.5)
 
     chemin = os.path.join(RES, "sensibilite.csv")
     colonnes = ["parametre", "valeur", "config", "F", "h", "w_min", "w_max", "C", "E", "M", "n_faisables"]
