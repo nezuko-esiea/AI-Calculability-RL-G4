@@ -1,3 +1,7 @@
+Groupe 4 :
+Boudjema Dyhia
+
+
 # A* pondéré : recherche des meilleurs paramètres
 
 Grille de base : `default.json`, 8×8, connectivité 8, départ (0,0), cible (7,7), seuil de mission 25.
@@ -15,6 +19,7 @@ Le problème :
 
 Pourquoi ces choix :
 - On divise par la référence pour que les 3 termes soient à la même échelle (autour de 1). Sinon le plus grand écrase les autres
+- Exemple sur `deux_murs`, avec `a = 0.8` (le coût compte beaucoup) : sans normaliser, Greedy (coût 24) battrait l'A* (coût 20.5), juste parce que l'effort se compte en dizaines de cases (8 contre 46). En normalisant, l'A* gagne, comme les poids le demandent
 - On utilise `E` et pas `T` : avec le cache, une recherche dure quelques microsecondes et `T` variait jusqu'à x4 pour le même calcul. `E` mesure le même travail mais ne bouge pas d'un lancement à l'autre. `T` est quand même mesuré et noté dans les CSV
 - `a = 0.5` : on veut d'abord un chemin pas cher. L'effort et la mémoire comptent pour l'autre moitié
 - L'A* classique comme référence : avec une `h` admissible il garantit le coût optimal, donc `C*` est le vrai minimum. Et c'est notre algo avec `w = 1`, c'est-à-dire sans réglage
@@ -171,6 +176,24 @@ Variation des contraintes et des poids (`sensibilite.py`) :
 - Seuil : c'est tout ou rien. En dessous de `C*` la mission est impossible (avec un seuil de 20, plus aucune solution sur les deux grilles à murs). Au-dessus, il ne change pas le meilleur réglage
 - `a` : le meilleur réglage ne bouge pas entre 0.1 et 0.8 sur 4 grilles sur 5. Seule `deux_murs` change de chemin (24, puis 21, puis 20.5 quand `a` augmente)
 - À `a = 1` seul le coût compte, et l'A* classique suffit
+
+Pourquoi `a` change si peu (avec `b = c`) :
+- `a` ne change pas les chemins, donc pas `C`, `E` et `M`. Il change seulement la note `F`, et donc peut-être le classement
+- Sur `default`, le palier est égal ou meilleur que tous les autres réglages faisables sur les trois mesures : `C = 11, E = 9, M = 26`, contre `11, 26, 36` pour l'A* et `23, 9, 27` pour le chemin à 23. Un réglage qui n'est derrière personne sur aucune mesure gagne quels que soient les poids
+- Sur `deux_murs`, aucun réglage n'est meilleur partout : explorer moins oblige à payer un peu plus. C'est là que `a` décide :
+
+| `a` | `default` : `F` du palier / de l'A* | `deux_murs` : gagnant |
+|---|---|---|
+| 0.2 | 0.627 / 1.000, palier | L∞ `w ≥ 9.5`, coût 24 (`F = 0.704`) |
+| 0.5 | 0.767 / 1.000, palier | L∞ `w` 5.8 à 7.2, coût 21 (`F = 0.835`) |
+| 0.8 | 0.907 / 1.000, palier | L∞ `w` 5.3 à 5.7, coût 20.5 (`F = 0.948`) |
+
+- Donc `a` ne compte que quand il y a un vrai compromis entre le coût et le reste
+
+Le partage entre `b` (effort) et `c` (mémoire), avec `a = 0.5` :
+- Sur les grilles sans murs, il ne change rien : le palier optimal explore le moins et a aussi le plus petit tas. Seule exception : si la mémoire ne compte pas du tout (`c = 0`), d'autres réglages qui explorent autant arrivent à égalité avec lui
+- Sur les deux grilles à murs, il change le résultat : explorer moins oblige à garder plus de cases en attente. Sur `deux_murs_con4`, L1 avec `w ≥ 4.6` explore 15 cases mais garde un tas de 19, alors que l'A* explore 64 cases avec un tas de 10
+- Si seule la mémoire compte, l'A* classique redevient le meilleur sur ces deux grilles
 
 ---
 
