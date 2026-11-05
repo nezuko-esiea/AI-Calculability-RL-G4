@@ -1,5 +1,6 @@
 Groupe 4 :
-Boudjema Dyhia
+Boudjema Dyhia,
+Vallet Jules
 
 
 # A* pondéré : recherche des meilleurs paramètres
