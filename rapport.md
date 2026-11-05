@@ -2,7 +2,8 @@ Groupe 4 :
 Boudjema Dyhia,
 Vallet Jules,
 Da Gama Clément,
-Ding Célivé
+Ding Célivé,
+Pedra Léa
 
 
 # A* pondéré : recherche des meilleurs paramètres
